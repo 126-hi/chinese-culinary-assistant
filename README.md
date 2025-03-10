@@ -41,12 +41,15 @@ Here are some placeholder images to illustrate the UI. Replace them with your ac
 
 ### 1. Main Page
 *(Add your screenshot here)*
+<img width="910" alt="Image" src="https://github.com/user-attachments/assets/3c041efc-7e90-4b39-9f8a-ec146d098a23" />
 
 ### 2. Recipe Generation
-*(Add your screenshot here)*
+<img width="892" alt="Image" src="https://github.com/user-attachments/assets/34b64ebd-9669-4eb1-ab91-8f944165cfc4" />
 
-### 3. Conversational Chat
-*(Add your screenshot here)*
+<img width="855" alt="Image" src="https://github.com/user-attachments/assets/889974ad-7392-4201-bdb9-d155ebfdd12f" />
+
+### 3. Image Generation
+<img width="852" alt="Image" src="https://github.com/user-attachments/assets/23511c78-9f40-454d-aec2-fed409dbefe3" />
 
 ## License
 
