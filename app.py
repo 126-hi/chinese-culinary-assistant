@@ -1,5 +1,5 @@
 import streamlit as st
-from openai import openai
+import openai
 
 # -----------------------------
 # 1. Streamlit App Title/Intro
