@@ -1,6 +1,5 @@
-pip install openai
 import streamlit as st
-import openai
+from openai import openai
 
 # -----------------------------
 # 1. Streamlit App Title/Intro
