@@ -1,34 +1,41 @@
 import streamlit as st
 import openai
-import os
 
-# ========================
-# Configure your API key
-# ========================
-# For production, load this from environment variables or Streamlit secrets.
-openai.api_key = "your API Key"
+# -----------------------------
+# 1. Streamlit App Title/Intro
+# -----------------------------
+st.title("🍜 Chinese Cuisine Chatbot")
+st.write(
+    "Welcome to the Chinese Cuisine Chatbot! Ask for Chinese recipes based on ingredients "
+    "you have or any other cooking-related questions. The chatbot is guided by examples "
+    "to provide a detailed dish name, list of ingredients, and step-by-step instructions."
+)
 
-# ===================
-# Single-shot Prompt
-# ===================
-single_shot_prompt = """You are a culinary assistant who helps users create delicious Chinese recipes based on available ingredients. Provide a detailed response including:
+# ----------------------------
+# 2. Prompt User for OpenAI Key
+# ----------------------------
+openai_api_key = st.text_input("Enter your OpenAI API Key:", type="password")
+if not openai_api_key:
+    st.info("Please enter your OpenAI API key to continue.")
+    st.stop()
+else:
+    openai.api_key = openai_api_key
 
-1. **Dish Name** – A creative and appealing name for the dish.
-2. **Ingredients List** – List all necessary ingredients.
-3. **Cooking Steps** – Provide clear, step-by-step instructions.
-4. **Cooking Tips** – Offer additional advice for variations or improvements.
+# --------------------------------------------------
+# 3. Define a System Prompt with Few-Shot Examples
+# --------------------------------------------------
+# Here we embed your few-shot examples directly into the system prompt.
+# The assistant will read these examples and follow their style/format.
+SYSTEM_PROMPT = """You are a culinary assistant who helps users create authentic Chinese recipes based on available ingredients. 
+Provide a structured response with the following sections:
+- **Dish Name**: A creative or traditional name for the dish (in English and, if possible, Chinese).
+- **Ingredients**: A clear list of needed ingredients (optionally with amounts).
+- **Instructions**: Step-by-step cooking instructions.
+- **Cooking Tips**: Additional suggestions for variations or improvements.
 
-### **User Input:**
-"I have {ingredients}. What Chinese dish can I make?"
+Follow the format shown in these examples:
 
-### **Expected Output:**"""
-
-# ==================
-# Few-shot Prompt
-# ==================
-few_shot_prompt = """You are a culinary assistant who helps users create authentic Chinese recipes based on available ingredients. Follow the given format and examples to generate an accurate response.
-
-### Example 1:
+### Example 1
 **User:** "I have chicken, peanuts, and Sichuan peppercorns. What Chinese dish can I make?"
 **Assistant:**
 **Dish Name:** Kung Pao Chicken (宫保鸡丁)
@@ -52,8 +59,11 @@ few_shot_prompt = """You are a culinary assistant who helps users create authent
 3. Add garlic and ginger, then stir-fry the marinated chicken until cooked.
 4. Mix soy sauce, dark soy sauce, sugar, and vinegar in a bowl, then pour it into the pan.
 5. Add peanuts and scallions, stir-fry for another minute, and serve.
+**Cooking Tips:** 
+- Adjust chili pepper amounts to your spice tolerance.
+- You can add bell peppers or zucchini for more vegetables.
 
-### Example 2:
+### Example 2
 **User:** "I have tofu, ground pork, and Sichuan peppercorns. What Chinese dish can I make?"
 **Assistant:**
 **Dish Name:** Mapo Tofu (麻婆豆腐)
@@ -76,175 +86,100 @@ few_shot_prompt = """You are a culinary assistant who helps users create authent
 2. Add garlic, ginger, and black beans, then stir-fry with doubanjiang for extra flavor.
 3. Add ground pork and cook until browned.
 4. Pour in chicken broth and soy sauce, then add tofu and simmer for 5 minutes.
-5. Add cornstarch slurry to thicken the sauce, then sprinkle scallions and serve hot.
+5. Add cornstarch slurry to thicken the sauce, then sprinkle scallions on top and serve hot.
+**Cooking Tips:**
+- Adjust the level of spiciness by varying the amount of doubanjiang or chili flakes.
+- For a vegetarian version, skip the pork and add mushrooms.
 
-### Example 3:
-**User:** "I have pork, cabbage, and dumpling wrappers. What Chinese dish can I make?"
-**Assistant:**
-**Dish Name:** Jiaozi (Chinese Dumplings, 饺子)
-**Ingredients:**
-- Ground pork (200g)
-- Napa cabbage (100g, finely chopped)
-- Garlic (1 clove, minced)
-- Ginger (1 tsp, minced)
-- Soy sauce (2 tbsp)
-- Sesame oil (1 tsp)
-- Salt (to taste)
-- Dumpling wrappers (20 pieces)
-- Water (for sealing and boiling)
-**Instructions:**
-1. Mix ground pork, chopped cabbage, garlic, ginger, soy sauce, sesame oil, and salt in a bowl.
-2. Place a small spoonful of filling in the center of each dumpling wrapper.
-3. Wet the edges of the wrapper with water, fold in half, and seal tightly.
-4. Boil a pot of water, add dumplings, and cook until they float (about 5 minutes).
-5. Serve hot with soy sauce or black vinegar dipping sauce.
+### Instructions:
+When a user says something like: 
+"I have [ingredients]. What Chinese dish can I make?"
+... respond with the same structure.
 
-### Now it's your turn:
-**User:** "I have {ingredients}. What Chinese dish can I make?"
-**Assistant:**
+If the user asks other cooking-related questions, just answer helpfully as a Chinese culinary expert. 
 """
 
-# =======================================
-# Core function to generate recipes
-# =======================================
-def get_recipe(ingredients, mode="single-shot", model="gpt-4"):
-    """
-    Generates a recipe using either single-shot or few-shot prompts
-    via OpenAI ChatCompletion.
-    """
-    if mode == "few-shot":
-        prompt = few_shot_prompt.format(ingredients=ingredients)
+# -------------------------------------
+# 4. Initialize Chat History in Session
+# -------------------------------------
+if "messages" not in st.session_state:
+    # The first message is a system message with our instructions & examples
+    st.session_state.messages = [
+        {"role": "system", "content": SYSTEM_PROMPT}
+    ]
+
+# --------------------------------------
+# 5. Display Chat History (if any exist)
+# --------------------------------------
+for msg in st.session_state.messages:
+    if msg["role"] == "user":
+        with st.chat_message("user"):
+            st.markdown(msg["content"])
+    elif msg["role"] == "assistant":
+        with st.chat_message("assistant"):
+            st.markdown(msg["content"])
     else:
-        prompt = single_shot_prompt.format(ingredients=ingredients)
+        # This covers the "system" role. Usually we don't display it in the chat.
+        # But you could optionally display it for debugging purposes:
+        # with st.expander("System Message"):
+        #     st.markdown(msg["content"])
+        pass
 
-    response = openai.ChatCompletion.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": "You are a helpful recipe assistant."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.7
-    )
-    return response["choices"][0]["message"]["content"].strip()
+# ------------------------------------------------
+# 6. Chat Input for the User + OpenAI API Response
+# ------------------------------------------------
+if user_input := st.chat_input("Ask about Chinese recipes or cooking here..."):
+    # 1) Append user's message
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    # 2) Display user's message
+    with st.chat_message("user"):
+        st.markdown(user_input)
 
-# ============================================
-# Conversational Chat Function with memory
-# ============================================
-def chat_with_gpt(user_message, model="gpt-4"):
-    """
-    Appends the user's message to the chat history in st.session_state,
-    calls the OpenAI ChatCompletion endpoint, and saves the assistant's 
-    response back into st.session_state. Returns the assistant's message.
-    """
-    st.session_state.chat_history.append({"role": "user", "content": user_message})
-    response = openai.ChatCompletion.create(
-        model=model,
-        messages=st.session_state.chat_history,
-        temperature=0.7
-    )
-    assistant_reply = response.choices[0].message.content.strip()
-    st.session_state.chat_history.append({"role": "assistant", "content": assistant_reply})
-    return assistant_reply
-
-# =========================================
-# Image Generation (DALL·E)
-# =========================================
-def generate_image_from_text(prompt, size="512x512"):
-    """
-    Generates an image using the OpenAI Image (DALL·E) endpoint, 
-    based on the provided text prompt. Returns the image URL if successful.
-    """
+    # 3) Call OpenAI ChatCompletion
     try:
-        response = openai.Image.create(
-            prompt=prompt,
-            n=1,
-            size=size
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",  # or "gpt-4" if you have access
+            messages=st.session_state.messages,
+            temperature=0.7,
+            stream=True,
         )
-        return response["data"][0]["url"]
+        # 4) Stream the assistant's reply in real-time
+        collected_response = []
+        with st.chat_message("assistant"):
+            for chunk in response:
+                chunk_message = chunk["choices"][0]["delta"].get("content", "")
+                if chunk_message:
+                    collected_response.append(chunk_message)
+                    st.write(chunk_message, end="")  # stream to the browser
+        assistant_reply = "".join(collected_response)
+
+        # 5) Add the assistant reply to session state
+        st.session_state.messages.append(
+            {"role": "assistant", "content": assistant_reply}
+        )
+
     except Exception as e:
-        st.error(f"An error occurred while generating the image: {e}")
-        return None
+        st.error(f"Error: {e}")
 
-# ==================
-#   Streamlit App
-# ==================
-st.title("Culinary Assistant")
-st.write("Generate Chinese recipes, create images of your dish, and chat with memory – all in one app.")
-
-# Initialize session state for chat history and recipe text
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
-
-if "generated_recipe" not in st.session_state:
-    st.session_state.generated_recipe = None
-
-# -----------------------------------------
-# 1) Ingredient-based Recipe Generation
-# -----------------------------------------
-st.subheader("Generate a Recipe")
-
-ingredients = st.text_input("Enter your ingredients (e.g., chicken, garlic, soy sauce):")
-prompt_mode = st.radio(
-    "Choose your prompt style:",
-    ("Single-shot", "Few-shot"),
-    horizontal=True
-)
-model_option = st.selectbox(
-    "Choose the Chat model:",
-    ("gpt-4", "gpt-3.5-turbo")
-)
-
-# Recipe generation button
-if st.button("Generate Recipe"):
-    if ingredients.strip():
-        mode_selected = "few-shot" if prompt_mode == "Few-shot" else "single-shot"
-        recipe_text = get_recipe(ingredients, mode=mode_selected, model=model_option)
-        st.session_state.generated_recipe = recipe_text
-    else:
-        st.warning("Please enter some ingredients first!")
-
-# Display the generated recipe if it exists
-if st.session_state.generated_recipe:
-    st.markdown("### Here's your recipe:")
-    st.markdown(st.session_state.generated_recipe)
-
-# --------------------------
-# 2) Image Generation
-# --------------------------
+# ------------------------------------------------
+# 7. (Optional) Image Generation with DALL·E
+# ------------------------------------------------
 st.write("---")
 st.subheader("Generate an Image of Your Dish (Optional)")
-
-image_prompt = st.text_input("Describe how you'd like your dish to appear (e.g., 'A plate of Kung Pao Chicken in a rustic Chinese kitchen').")
+image_prompt = st.text_input("Enter a short description to visualize your dish (e.g. 'A steaming bowl of spicy Mapo Tofu on a rustic table')")
 
 if st.button("Generate Image"):
-    if image_prompt.strip():
-        image_url = generate_image_from_text(image_prompt, size="512x512")
-        if image_url:
-            st.image(image_url, caption="Generated Image")
+    if not image_prompt.strip():
+        st.warning("Please provide a prompt for image generation.")
     else:
-        st.warning("Please enter an image description first!")
+        try:
+            response = openai.Image.create(
+                prompt=image_prompt,
+                n=1,
+                size="512x512"
+            )
+            image_url = response["data"][0]["url"]
+            st.image(image_url, caption="Generated by DALL·E")
+        except Exception as e:
+            st.error(f"An error occurred while generating the image: {e}")
 
-# --------------------------
-# 3) Conversational Chat
-# --------------------------
-st.write("---")
-st.subheader("Conversational Chat")
-st.write("Ask the Culinary Assistant about anything related to cooking or beyond, with context retained.")
-
-user_chat_input = st.text_input("Enter your message to chat with the assistant:")
-
-if st.button("Send Message"):
-    if user_chat_input.strip():
-        chat_reply = chat_with_gpt(user_chat_input, model=model_option)
-        st.write(f"**Assistant:** {chat_reply}")
-    else:
-        st.warning("Please enter a message first!")
-
-# Display conversation history
-if st.session_state.chat_history:
-    st.write("### Conversation History")
-    for idx, msg in enumerate(st.session_state.chat_history):
-        if msg["role"] == "user":
-            st.markdown(f"**User:** {msg['content']}")
-        else:
-            st.markdown(f"**Assistant:** {msg['content']}")
