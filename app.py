@@ -1,5 +1,7 @@
+source venv/bin/activate
+pip install openai
 import streamlit as st
-from openai import OpenAI
+import openai
 
 # -----------------------------
 # 1. Streamlit App Title/Intro
