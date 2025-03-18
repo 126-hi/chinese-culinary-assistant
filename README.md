@@ -22,7 +22,7 @@ A **Streamlit** application that leverages **OpenAI** APIs to:
 
 1. **Clone or Download** this repository to your local environment:
    ```bash
-   git clone https://github.com/YOUR-USERNAME/chinese-culinary-assistant.git
+   git clone https://github.com/126-hi/chinese-culinary-assistant.git
    cd chinese-culinary-assistant
    ```
 2. **Install Dependencies**:
@@ -44,13 +44,13 @@ A **Streamlit** application that leverages **OpenAI** APIs to:
 > Below are some placeholder screenshots; replace the URLs with actual links to your images.
 
 - **Main Interface**  
-  ![Main Interface](https://your-screenshot-link/main-interface.png)
+  ![Main Interface](https://raw.githubusercontent.com/126-hi/chinese-culinary-assistant/7b2ff37032252fe3857ae6f647b9f2175e4e5650/%E6%88%AA%E5%B1%8F2025-03-17%2021.25.47.png)
 
 - **Recipe Generation**  
-  ![Recipe Generation](https://your-screenshot-link/recipe.png)
+  ![Recipe Generation](https://raw.githubusercontent.com/126-hi/chinese-culinary-assistant/7b2ff37032252fe3857ae6f647b9f2175e4e5650/%E6%88%AA%E5%B1%8F2025-03-17%2021.26.46.png)
 
 - **Image Generation**  
-  ![Generated Dish Image](https://your-screenshot-link/image-generation.png)
+  ![Generated Dish Image](https://raw.githubusercontent.com/126-hi/chinese-culinary-assistant/7b2ff37032252fe3857ae6f647b9f2175e4e5650/%E6%88%AA%E5%B1%8F2025-03-17%2021.27.33.png)
 
 ## License
 
