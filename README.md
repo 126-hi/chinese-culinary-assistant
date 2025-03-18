@@ -1,54 +1,64 @@
+
 # chinese-culinary-assistant
 
-A simple Streamlit application that uses OpenAI's APIs for:
-
-- Generating Chinese recipes (using single-shot or few-shot prompts).
-- Creating images via OpenAI’s Image (DALL·E) endpoint.
-- Conversational chat with memory, thanks to `st.session_state`.
+A **Streamlit** application that leverages **OpenAI** APIs to:
+- Generate Chinese recipes (via single-shot or few-shot prompts).
+- Create dish images using the DALL·E endpoint.
+- Maintain conversational context through `st.session_state`.
 
 ## Features
 
-1. **Recipe Generation**
-   - **Single-shot Prompt**: Quick recipe suggestions without examples.
-   - **Few-shot Prompt**: More detailed, context-rich recipes with provided examples.
+1. **Recipe Generation**  
+   - **Single-shot Prompt**: Quick recipe suggestions by simply listing ingredients.  
+   - **Few-shot Prompt**: Provides more detailed, context-rich recipes (including dish name, ingredients, steps, and tips).
 
-2. **Image Generation**
-   - Generates images based on a text prompt using DALL·E.
+2. **Image Generation**  
+   - Generate dish images using OpenAI’s **DALL·E** based on a text prompt.
 
-3. **Conversational Chat**
-   - Retains conversational context in `st.session_state` so the user can have a back-and-forth conversation without losing previous context.
+3. **Conversational Chat**  
+   - Saves the conversation in `st.session_state`, allowing a dynamic Q&A style chat without losing context.
 
 ## Installation
 
-1. Clone or download the repository to your local machine.
-2. Install the required Python packages:
-
+1. **Clone or Download** this repository to your local environment:
+   ```bash
+   git clone https://github.com/YOUR-USERNAME/chinese-culinary-assistant.git
+   cd chinese-culinary-assistant
+   ```
+2. **Install Dependencies**:
    ```bash
    pip install streamlit openai
    ```
 
 ## Usage
 
-Run the Streamlit app locally:
+1. **Run** the app locally with:
+   ```bash
+   streamlit run app.py
+   ```
+2. Enter your **OpenAI API Key** when prompted (in the sidebar by default).
+3. Start **chatting** to receive recipe suggestions or use the **image generation** feature to visualize your dish ideas.
 
-```bash
-streamlit run app.py
-```
+## Screenshots
 
-## Demo / Screenshots
+> Below are some placeholder screenshots; replace the URLs with actual links to your images.
 
-Here are some placeholder images to illustrate the UI. Replace them with your actual screenshots once you have them:
+- **Main Interface**  
+  ![Main Interface](https://your-screenshot-link/main-interface.png)
 
-### 1. Main Page
-*(Add your screenshot here)*
-<img width="910" alt="Image" src="https://github.com/user-attachments/assets/3c041efc-7e90-4b39-9f8a-ec146d098a23" />
+- **Recipe Generation**  
+  ![Recipe Generation](https://your-screenshot-link/recipe.png)
 
-### 2. Recipe Generation
-<img width="892" alt="Image" src="https://github.com/user-attachments/assets/34b64ebd-9669-4eb1-ab91-8f944165cfc4" />
+- **Image Generation**  
+  ![Generated Dish Image](https://your-screenshot-link/image-generation.png)
 
-<img width="855" alt="Image" src="https://github.com/user-attachments/assets/889974ad-7392-4201-bdb9-d155ebfdd12f" />
+## License
 
-### 3. Image Generation
-<img width="852" alt="Image" src="https://github.com/user-attachments/assets/23511c78-9f40-454d-aec2-fed409dbefe3" />
+Licensed under the [MIT License](LICENSE).
+
+---
+
+**Happy Cooking!** 
+
 
 
