@@ -1,0 +1,2 @@
+pip install -U "pathway[all]"
+pip install -U langgraph langchain-community langchainhub langchain-openai
