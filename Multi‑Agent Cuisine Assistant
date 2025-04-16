@@ -1,0 +1,271 @@
+# -*- coding: utf-8 -*-
+"""
+Streamlit Multi‑Agent Cuisine Assistant (English UI)
+===================================================
+Adds **Photo‑based calorie estimation** powered by JaydeepR/Calorie_counter
+HF Space.  Users can now:
+
+1.  Recipes – generate / retrieve recipes (RAG optional)
+2.  Make Meal Plans – generate multi‑day plans
+3.  Take Photos – generate food images via DALL·E 3
+4.  Photo Calorie Counter – upload a food photo → get calorie estimate
+5.  Calculate Calories – textual ingredient estimation
+
+The new `CalorieVisionAgent` calls the HF Inference API.  You’ll need a
+Hugging Face **access token** with `read` scope and (optionally) a paid
+inference plan if the Space requires one.
+"""
+
+from pathlib import Path
+from typing import List, Optional
+import base64
+
+import openai
+import requests
+import streamlit as st
+from langchain_community.document_loaders import PyPDFLoader
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.text_splitter import CharacterTextSplitter
+from langchain.vectorstores import FAISS
+
+# -----------------------------------------------------------------------------
+# 🎨  Global styling -----------------------------------------------------------
+# -----------------------------------------------------------------------------
+CSS = """
+<style>
+  .stApp         { background-color:#fff9e6; }
+  .title         { text-align:center; font-size:36px; font-weight:bold; }
+  .stChatMessage { border-radius:10px; padding:10px; margin-bottom:5px; }
+  .stTextInput>div>div>input { border-radius:10px; border:1px solid #FFA500; }
+  .css-1d391kg   { background-color:#fff3d4 !important; }
+</style>
+"""
+
+st.set_page_config(page_title="Cuisine Assistant", layout="wide")
+st.markdown(CSS, unsafe_allow_html=True)
+st.markdown("<h1 class='title'>🍽️ Multi‑Agent Cuisine Assistant</h1>", unsafe_allow_html=True)
+
+# -----------------------------------------------------------------------------
+# 🔑  API keys -----------------------------------------------------------------
+# -----------------------------------------------------------------------------
+with st.sidebar:
+    st.title("🔑 API Settings")
+    api_key_input = st.text_input("OpenAI API Key", type="password")
+    hf_token_input = st.text_input("Hugging Face Access Token (for photo calories)", type="password")
+
+if not api_key_input:
+    st.warning("Please provide an OpenAI API key in the sidebar.")
+    st.stop()
+
+openai.api_key = api_key_input
+client = openai.OpenAI(api_key=api_key_input)
+
+# -----------------------------------------------------------------------------
+# 📚   Build / load FAISS retriever -------------------------------------------
+# -----------------------------------------------------------------------------
+PDF_PATHS = [
+    "/mnt/data/01. Easy Chinese Cuisine author Ailam Lim.pdf",
+    "/mnt/data/02. China in 50 Dishes author HSBC.pdf",
+]
+
+@st.cache_resource(show_spinner="🔍 Building vector database…")
+def load_retriever(paths: List[str], key: str):
+    pages = []
+    for p in paths:
+        if Path(p).exists():
+            pages.extend(PyPDFLoader(p).load())
+    splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    split_pages = splitter.split_documents(pages)
+    embeddings = OpenAIEmbeddings(api_key=key)
+    store = FAISS.from_documents(split_pages, embeddings)
+    return store.as_retriever()
+
+retriever = load_retriever(PDF_PATHS, api_key_input)
+
+# -----------------------------------------------------------------------------
+# 🛠️   Agent definitions ------------------------------------------------------
+# -----------------------------------------------------------------------------
+SYSTEM_PROMPT = (
+    "You are a culinary assistant who creates authentic Chinese recipes. "
+    "Always return structured markdown."
+)
+
+class RAGAgent:
+    def __init__(self, _retriever):
+        self.retriever = _retriever
+
+    def get_context(self, query: str, k: int = 3) -> str:
+        docs = self.retriever.get_relevant_documents(query)
+        return "\n\n".join(d.page_content for d in docs[:k])
+
+rag_agent = RAGAgent(retriever)
+
+class RecipeAgent:
+    def generate(self, prompt: str, use_rag: bool = True) -> str:
+        msgs = [{"role": "system", "content": SYSTEM_PROMPT}]
+        if use_rag:
+            ctx = rag_agent.get_context(prompt)
+            msgs.append({"role": "system", "content": f"Cookbook context:\n{ctx}"})
+        msgs.append({"role": "user", "content": prompt})
+        resp = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=msgs,
+            temperature=0.7,
+        )
+        return resp.choices[0].message.content.strip()
+
+recipe_agent = RecipeAgent()
+
+class MealPlanAgent:
+    TEMPLATE = (
+        "Create a meal plan based on the request below. "
+        "Return a markdown table with Day, Meal, Dish, Estimated Calories."
+    )
+
+    def generate(self, prompt: str) -> str:
+        resp = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": self.TEMPLATE},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.6,
+        )
+        return resp.choices[0].message.content.strip()
+
+meal_agent = MealPlanAgent()
+
+class ImageAgent:
+    def generate(self, prompt: str) -> str:
+        resp = client.images.generate(
+            model="dall-e-3",
+            prompt=prompt,
+            n=1,
+            size="1024x1024",
+        )
+        return resp.data[0].url
+
+image_agent = ImageAgent()
+
+class CalorieTextAgent:
+    TEMPLATE = (
+        "Estimate total calories for the ingredients listed. "
+        "Return each ingredient with kcal value and a final sum."
+    )
+
+    def estimate(self, ingredients: str) -> str:
+        resp = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": self.TEMPLATE},
+                {"role": "user", "content": ingredients},
+            ],
+            temperature=0.3,
+        )
+        return resp.choices[0].message.content.strip()
+
+calorie_text_agent = CalorieTextAgent()
+
+class CalorieVisionAgent:
+    """Call JaydeepR/Calorie_counter Space to estimate calories from an image."""
+
+    API_URL = "https://api-inference.huggingface.co/models/JaydeepR/Calorie_counter"
+
+    def __init__(self, hf_token: Optional[str] = None):
+        self.headers = {"Authorization": f"Bearer {hf_token}"} if hf_token else {}
+
+    def estimate(self, image_bytes: bytes) -> str:
+        if not image_bytes:
+            return "No image provided."
+        resp = requests.post(self.API_URL, headers=self.headers, data=image_bytes)
+        if resp.status_code != 200:
+            return f"❌ HF API error: {resp.status_code} – {resp.text}"
+        try:
+            data = resp.json()
+        except ValueError:
+            return "❌ Invalid JSON response from HF API."
+        # Expecting data like {"label":"Pizza", "calorie": 285, ...}
+        return json_to_md(data)
+
+
+def json_to_md(d):
+    if not isinstance(d, dict):
+        return str(d)
+    lines = [f"**{k.title()}**: {v}" for k, v in d.items()]
+    return "\n".join(lines)
+
+calorie_vision_agent = CalorieVisionAgent(hf_token_input)
+
+# -----------------------------------------------------------------------------
+# 📂  Sidebar navigation ------------------------------------------------------
+# -----------------------------------------------------------------------------
+with st.sidebar:
+    st.title("📂 Navigation")
+    section = st.radio(
+        "Choose a feature:",
+        (
+            "Recipes",
+            "Make Meal Plans",
+            "Take Photos",
+            "Photo Calorie Counter",
+            "Calculate Calories (Text)",
+        ),
+    )
+    st.markdown("---")
+    if section == "Recipes":
+        use_rag_flag = st.checkbox("✨ Use RAG (cookbook PDFs)", value=True)
+
+# -----------------------------------------------------------------------------
+# 🚦  Orchestrator -------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+def orchestrate_text(query: str) -> str:
+    if section == "Recipes":
+        return recipe_agent.generate(query, use_rag=use_rag_flag)
+    if section == "Make Meal Plans":
+        return meal_agent.generate(query)
+    if section == "Take Photos":
+        return image_agent.generate(query)  # returns URL
+    if section == "Calculate Calories (Text)":
+        return calorie_text_agent.estimate(query)
+    return "Unknown feature."
+
+# -----------------------------------------------------------------------------
+# 🖥️   Main interface ---------------------------------------------------------
+# -----------------------------------------------------------------------------
+if section == "Photo Calorie Counter":
+    st.subheader("Upload a food photo (JPG/PNG)…")
+    uploaded = st.file_uploader("Choose image", type=["jpg", "jpeg", "png"])
+    if st.button("🚀 Estimate Calories"):
+        if uploaded is None:
+            st.warning("Please upload an image first.")
+        else:
+            with st.spinner("🧮 Estimating calories…"):
+                img_bytes = uploaded.read()
+                result = calorie_vision_agent.estimate(img_bytes)
+            st.image(img_bytes, caption="Uploaded Photo", use_column_width=True)
+            st.markdown(result)
+else:
+    placeholders = {
+        "Recipes": "Enter ingredients or a dish name to get a recipe…",
+        "Make Meal Plans": "Describe your dietary goals (days, meals, calories)…",
+        "Take Photos": "Describe the food image you want to create…",
+        "Calculate Calories (Text)": "List ingredients and quantities, one per line…",
+    }
+    prompt = st.text_area(placeholders.get(section, "Your input…"), height=100)
+    if st.button("🚀 Submit"):
+        if not prompt.strip():
+            st.warning("Please enter some text before submitting.")
+        else:
+            with st.spinner("🤖 Working…"):
+                output = orchestrate_text(prompt.strip())
+            if section == "Take Photos":
+                st.image(output, caption="Generated Image", use_column_width=True)
+            else:
+                st.markdown(output)
+
+st.markdown("---")
+st.markdown(
+    "*Demo built with Streamlit, LangChain, FAISS, Hugging Face & OpenAI –"
+    " replace stub logic with production calls as needed.*"
+)
